@@ -14,11 +14,11 @@
 }:
 stdenv.mkDerivation rec {
   pname = "bptimer";
-  version = "0.1.9";
+  version = "0.1.10";
 
   src = fetchurl {
     url = "https://github.com/woheedev/bptimer/releases/download/v${version}/bptimer-desktop-x86_64-unknown-linux-gnu";
-    hash = "sha256-gcuNZvzYJcuevuzJvbK+E0tMU7GcmW9aJIipGFBptTM=";
+    hash = "sha256-tRLAR9UOP+zxWZT9M5RM44vEDVHY+WgQJESvdWR/UIM=";
   };
 
   nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [
