@@ -1,67 +1,61 @@
 {
-  description = "Description for the project";
+  description = "BPTimer – Web panel to display live data from Blue Protocol: Star Resonance";
 
-  inputs = {
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    treefmt-nix = {
-      url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  outputs =
-    inputs@{ flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [
-        # To import an internal flake module: ./other.nix
-        # To import an external flake module:
-        #   1. Add foo to inputs
-        #   2. Add foo as a parameter to the outputs function
-        #   3. Add here: foo.flakeModule
-        inputs.treefmt-nix.flakeModule
-      ];
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
-        "aarch64-darwin"
-        "x86_64-darwin"
-      ];
-      perSystem =
-        {
-          config,
-          self',
-          inputs',
-          pkgs,
-          system,
-          ...
-        }:
-        let
-          inherit (pkgs)
-            callPackage
-            stdenv
-            ;
-          bptimer = callPackage ./bptimer { };
-        in
-        {
-          # Per-system attributes can be defined here. The self' and inputs'
-          # module parameters provide easy access to attributes of the same
-          # system.
-
-          treefmt = {
-            projectRootFile = "flake.nix";
-            programs = {
-              nixfmt.enable = true;
-            };
+  outputs = {
+    self,
+    nixpkgs,
+  }: let
+    systems = ["x86_64-linux" "aarch64-linux"];
+    forAllSystems = nixpkgs.lib.genAttrs systems;
+  in {
+    packages = forAllSystems (
+      system: let
+        pkgs = import nixpkgs {inherit system;};
+      in {
+        default = pkgs.stdenv.mkDerivation rec {
+          pname = "bptimer";
+          version = "0.2.0";
+          src = pkgs.fetchurl {
+            url = "https://github.com/woheedev/bptimer/releases/download/v${version}/bptimer-desktop-x86_64-unknown-linux-gnu";
+            hash = "sha256-widXmZ13nAbCar2iIME6Ij6BDk4FPAVPrI5hEBq134M=";
           };
-          # Equivalent to  inputs'.nixpkgs.legacyPackages.hello;
-          packages.default = bptimer;
-        };
-      flake = {
-        # The usual flake attributes can be defined here, including system-
-        # agnostic ones like nixosModule and system-enumerating ones, although
-        # those are more easily expressed in perSystem.
 
+          nativeBuildInputs = with pkgs; [
+            makeWrapper
+            autoPatchelfHook
+          ];
+
+          buildInputs = [
+            pkgs.libpcap
+            pkgs.openssl
+            pkgs.stdenv.cc.cc
+          ];
+
+          runtimeDependencies = [
+            pkgs.wayland
+            pkgs.libxkbcommon
+            pkgs.libGL
+            pkgs.libx11
+            pkgs.libxcursor
+            pkgs.libxi
+          ];
+
+          unpackPhase = "true";
+
+          installPhase = ''
+            install -Dm755 $src $out/bin/bptimer
+          '';
+        };
+      }
+    );
+
+    apps = forAllSystems (system: {
+      default = {
+        type = "app";
+        program = "${self.packages.${system}.default}/bin/bptimer";
       };
-    };
+    });
+  };
 }
